@@ -51,7 +51,7 @@
      INSERT zrap_abook_fw FROM (
      SELECT
      FROM /dmo/booking AS booking
-             JOIN zrap_atrav_1234 AS z
+             JOIN zrap_atrav_fw AS z
           ON booking~travel_id = z~travel_id
          FIELDS
          uuid( ) AS booking_uuid,
