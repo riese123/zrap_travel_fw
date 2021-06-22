@@ -3,7 +3,9 @@
 define view entity ZI_RAP_Booking_FW
   as select from zrap_abook_fw as Booking
 
-  association [1..1] to ZI_RAP_Travel_fw  as _Travel     on  $projection.TravelUUID = _Travel.TravelUUID
+//  association [1..1] to ZI_RAP_Travel_fw  as _Travel     on  $projection.TravelUUID = _Travel.TravelUUID
+association to parent ZI_RAP_Travel_fw as _Travel     on  $projection.TravelUUID = _Travel.TravelUUID
+
 
   association [1..1] to /DMO/I_Customer   as _Customer   on  $projection.CustomerID = _Customer.CustomerID
   association [1..1] to /DMO/I_Carrier    as _Carrier    on  $projection.CarrierID = _Carrier.AirlineID

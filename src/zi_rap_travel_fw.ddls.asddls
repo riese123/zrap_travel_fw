@@ -3,8 +3,8 @@
 define root view entity ZI_RAP_Travel_fw
   as select from zrap_atrav_fw as Travel
 
-  //  composition [0..*] of ZI_RAP_Booking_fw as _Booking
-  association [0..*] to ZI_RAP_Booking_FW   as _Booking  on $projection.TravelUUID = _Booking.TravelUUID
+  composition [0..*] of ZI_RAP_Booking_FW as _Booking
+//  association [0..*] to ZI_RAP_Booking_FW   as _Booking  on $projection.TravelUUID = _Booking.TravelUUID
 
   //association [0..1] to /DMO/I_Agency       as _Agency   on $projection.AgencyID = _Agency.AgencyID
   association [0..1] to zce_rap_agency_1234 as _Agency   on $projection.AgencyID = _Agency.AgencyId
