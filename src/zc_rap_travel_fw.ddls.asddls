@@ -1,17 +1,17 @@
-@EndUserText.label: 'Travel BO projection view'
+ @EndUserText.label: 'Travel BO projection view'
 @AccessControl.authorizationCheck: #CHECK
 @Search.searchable: true
 @Metadata.allowExtensions: true
 
 define root view entity ZC_RAP_Travel_FW
-  as projection on ZI_RAP_Travel_FW as Travel
+  as projection on ZI_RAP_Travel_fw as Travel
 {
   key TravelUUID,
       @Search.defaultSearchElement: true
       TravelID,
-  //    @Consumption.valueHelpDefinition: [{ entity: { name: '/DMO/I_Agency', element: 'AgencyID'} }]
-      @Consumption.valueHelpDefinition: [{ entity: { name: 'zce_rap_agency_1234', element: 'AgencyID'} }]
-  //    @ObjectModel.text.element: ['AgencyName']
+//     @Consumption.valueHelpDefinition: [{ entity: { name: '/DMO/I_Agency', element: 'AgencyID'} }]
+       @Consumption.valueHelpDefinition: [{ entity: { name: 'zce_rap_agency_1234', element: 'AgencyID'} }]
+//      @ObjectModel.text.element: ['AgencyName']
       @Search.defaultSearchElement: true
       AgencyID,
   //    _Agency.Name       as AgencyName,
