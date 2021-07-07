@@ -61,11 +61,11 @@ CLASS zcm_rap_fw DEFINITION
         severity   TYPE if_abap_behv_message=>t_severity DEFAULT if_abap_behv_message=>severity-error
         textid     LIKE if_t100_message=>t100key OPTIONAL
         previous   TYPE REF TO cx_root OPTIONAL
-        begindate  TYPE /dmo/begin_date
-        enddate    TYPE /dmo/end_date
-        travelid   TYPE /dmo/travel_id
-        customerid TYPE /dmo/customer_id
-        agencyid   TYPE /dmo/agency_id.
+        begindate  TYPE /dmo/begin_date OPTIONAL
+        enddate    TYPE /dmo/end_date OPTIONAL
+        travelid   TYPE /dmo/travel_id OPTIONAL
+        customerid TYPE /dmo/customer_id OPTIONAL
+        agencyid   TYPE /dmo/agency_id OPTIONAL.
 
     DATA begindate  TYPE /dmo/begin_date READ-ONLY.
     DATA enddate    TYPE /dmo/end_date   READ-ONLY.

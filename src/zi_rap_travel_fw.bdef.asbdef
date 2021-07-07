@@ -28,7 +28,7 @@ etag master LocalLastChangedAt
 
   validation validateAgency on save { field AgencyID; create; }
   validation validateCustomer on save { field CustomerID; create; }
-  validation validateDate on save { field BeginDate, EndDate; create; }
+  validation validateDates on save { field BeginDate, EndDate; create; }
 
   mapping for zrap_atrav_fw
   {
