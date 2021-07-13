@@ -5,7 +5,7 @@ define behavior for ZI_RAP_Travel_fw alias Travel
 implementation in class zbp_i_rap_travel_fw unique
 persistent table zrap_atrav_fw
 lock master
-//authorization master ( instance )
+authorization master ( instance )
 etag master LocalLastChangedAt
 {
   create;
@@ -55,7 +55,7 @@ define behavior for ZI_RAP_Booking_FW alias Booking
 implementation in class zbp_i_rap_booking_fw unique
 persistent table zrap_abook_fw
 lock dependent by _Travel
-// authorization dependent by _Travel
+authorization dependent by _Travel
 etag master LocalLastChangedAt
 {
   update;
@@ -66,7 +66,7 @@ etag master LocalLastChangedAt
   field ( readonly ) TravelUUID, BookingID;
   field ( readonly ) CreatedBy, LastChangedBy, LocalLastChangedAt;
 
-  determination calcluateBookingID on modify { create; }
+  determination calculateBookingID on modify { create; }
   determination calculateTotalPrice on modify { field FlightPrice, CurrencyCode; }
 
   mapping for zrap_abook_fw
@@ -84,5 +84,18 @@ etag master LocalLastChangedAt
     CreatedBy = created_by;
     LastChangedBy = last_changed_by;
     LocalLastChangedAt = local_last_changed_at;
+    //    BookingUUID = booking_uuid;
+    //    TravelUUID = travel_uuid;
+    //    BookingID = booking_id;
+    //    BookingDate = booking_date;
+    //    CustomerID = customer_id;
+    //    CarrierID = carrier_id;
+    /*    ConnectionID = connection_id;
+     FlightDate = flight_date;
+     FlightPrice = flight_price;
+     CurrencyCode = currency_code;
+     CreatedBy = created_by;
+     LastChangedBy = last_changed_by;
+     LocalLastChangedAt = local_last_changed_at;*/
   }
 }

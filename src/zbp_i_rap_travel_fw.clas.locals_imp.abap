@@ -38,6 +38,25 @@ CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
     METHODS validateDates FOR VALIDATE ON SAVE
       IMPORTING keys FOR Travel~validateDates.
 
+    METHODS get_authorizations FOR AUTHORIZATION
+      IMPORTING keys REQUEST requested_authorizations FOR travel  RESULT result.
+
+    METHODS is_update_granted
+      IMPORTING
+                has_before_image      TYPE abap_bool
+                overall_status        TYPE /dmo/overall_status
+      RETURNING VALUE(update_granted) TYPE abap_bool.
+
+    METHODS is_delete_granted
+      IMPORTING
+                has_before_image      TYPE abap_bool
+                overall_status        TYPE /dmo/overall_status
+      RETURNING VALUE(delete_granted) TYPE abap_bool.
+
+    METHODS is_create_granted
+      RETURNING VALUE(create_granted) TYPE abap_bool.
+
+
 ENDCLASS.
 
 CLASS lhc_Travel IMPLEMENTATION.
@@ -50,7 +69,20 @@ CLASS lhc_Travel IMPLEMENTATION.
         RESULT DATA(travels)
         FAILED failed.
 
-
+    result =
+      VALUE #(
+        FOR travel IN travels
+          LET is_accepted = COND #( WHEN travel-TravelStatus = travel_status-accepted
+                                    THEN if_abap_behv=>fc-o-disabled
+                                    ELSE if_abap_behv=>fc-o-enabled )
+              is_rejected = COND #( WHEN travel-TravelStatus = travel_status-cancelled
+                                    THEN if_abap_behv=>fc-o-disabled
+                                    ELSE if_abap_behv=>fc-o-enabled )
+          IN
+            ( %tky = travel-%tky
+              %action-acceptTravel = is_accepted
+              %action-rejectTravel = is_rejected
+              ) ).
   ENDMETHOD.
 
   METHOD acceptTravel.
@@ -93,7 +125,7 @@ CLASS lhc_Travel IMPLEMENTATION.
         WITH CORRESPONDING #( keys )
       RESULT DATA(travels).
 
-    DELETE travels WHERE CurrencyCode IS NOT INITIAL.
+    DELETE travels WHERE CurrencyCode IS INITIAL.
 
     LOOP AT travels ASSIGNING FIELD-SYMBOL(<travel>).
       " Set the start for the calculation by adding the booking fee
@@ -347,6 +379,164 @@ CLASS lhc_Travel IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
 
+  ENDMETHOD.
+
+  METHOD get_authorizations.
+    DATA:
+      has_before_image    TYPE abap_bool,
+      is_update_requested TYPE abap_bool,
+      is_delete_requested TYPE abap_bool,
+      update_granted      TYPE abap_bool,
+      delete_granted      TYPE abap_bool.
+
+    DATA:
+      failed_travel LIKE LINE OF failed-travel.
+
+    " Read the existing travels
+    READ ENTITIES OF ZI_RAP_Travel_fw IN LOCAL MODE
+      ENTITY Travel
+        FIELDS ( TravelStatus ) WITH CORRESPONDING #( keys )
+      RESULT DATA(travels)
+      FAILED failed.
+
+    CHECK travels IS NOT INITIAL.
+
+*   In this example the authorization is defined based on the Activity + Travel Stauts
+*   For the Travel Status we need the before-image from the database. We perform this for active (is_draft=00) as
+*   well as for drafts (is_draft = 01) as we can't distinguish between
+*   edit and new drafts.
+    SELECT FROM
+      zrap_atrav_fw
+        FIELDS
+          travel_uuid, overall_status
+        FOR ALL ENTRIES IN
+          @travels
+        WHERE
+          travel_uuid EQ @travels-TravelUUID
+        ORDER BY PRIMARY KEY
+        INTO TABLE
+          @DATA(travels_before_image).
+
+    is_update_requested = COND #(
+                            WHEN
+                              requested_authorizations-%update = if_abap_behv=>mk-on              OR
+                              requested_authorizations-%action-acceptTravel = if_abap_behv=>mk-on OR
+                              requested_authorizations-%action-rejectTravel = if_abap_behv=>mk-on OR
+                              requested_authorizations-%assoc-_Booking      = if_abap_behv=>mk-on
+                            THEN
+                              abap_true ELSE abap_false ).
+
+    is_delete_requested = COND #(
+                             WHEN
+                               requested_authorizations-%delete = if_abap_behv=>mk-on
+                             THEN
+                               abap_true ELSE abap_false ).
+
+    LOOP AT travels INTO DATA(travel).
+      update_granted = delete_granted = abap_false.
+
+      READ TABLE travels_before_image INTO DATA(travel_before_image)
+        WITH KEY travel_uuid = travel-TravelUUID BINARY SEARCH.
+      has_before_image = COND #( WHEN sy-subrc = 0 THEN abap_true ELSE abap_false ).
+
+      IF is_update_requested = abap_true.
+        " Edit of an existing record => check update authorisation
+        IF has_before_image = abap_true.
+          update_granted = is_update_granted( has_before_image = has_before_image overall_status = travel_before_image-overall_status ).
+          IF update_granted = abap_false.
+            APPEND VALUE #( %tky = travel-%tky
+                            %fail-cause = if_abap_behv=>cause-unauthorized ) TO failed-travel.
+            APPEND VALUE #( %tky = travel-%tky
+                            %msg = NEW zcm_rap_fw(
+                                     severity = if_abap_behv_message=>severity-error
+                                     textid   = zcm_rap_fw=>unauthorized )
+                             ) TO reported-travel.
+          ENDIF.
+          " Creation of a new record -> check create authorisation
+        ELSE.
+          update_granted = is_create_granted(  ).
+          IF update_granted = abap_false.
+            APPEND VALUE #( %tky        = travel-%tky
+                            %fail-cause = if_abap_behv=>cause-unauthorized ) TO failed-travel.
+            APPEND VALUE #( %tky = travel-%tky
+                            %msg = NEW zcm_rap_fw(
+                                     severity = if_abap_behv_message=>severity-error
+                                     textid   = zcm_rap_fw=>unauthorized )
+                            ) TO reported-travel.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+
+      IF is_delete_requested = abap_true.
+        delete_granted = is_delete_granted( has_before_image = has_before_image overall_status = travel_before_image-overall_status ).
+        IF delete_granted = abap_false.
+          APPEND VALUE #( %tky        = travel-%tky
+                          %fail-cause = if_abap_behv=>cause-unauthorized ) TO failed-travel.
+          APPEND VALUE #( %tky = travel-%tky
+                          %msg  = NEW zcm_rap_fw(
+                                    severity = if_abap_behv_message=>severity-error
+                                    textid   = zcm_rap_fw=>unauthorized )
+                          ) TO reported-travel.
+        ENDIF.
+      ENDIF.
+
+      APPEND VALUE #( %tky = travel-%tky
+                      %update = COND #(
+                                  WHEN update_granted = abap_true THEN if_abap_behv=>auth-allowed ELSE if_abap_behv=>auth-unauthorized )
+                      %action-acceptTravel = COND #(
+                                  WHEN update_granted = abap_true THEN if_abap_behv=>auth-allowed ELSE if_abap_behv=>auth-unauthorized )
+                      %action-rejectTravel = COND #(
+                                  WHEN update_granted = abap_true THEN if_abap_behv=>auth-allowed ELSE if_abap_behv=>auth-unauthorized )
+                      %assoc-_Booking = COND #(
+                                  WHEN update_granted = abap_true THEN if_abap_behv=>auth-allowed ELSE if_abap_behv=>auth-unauthorized )
+                      %delete = COND #(
+                                  WHEN delete_granted = abap_true THEN if_abap_behv=>auth-allowed ELSE if_abap_behv=>auth-unauthorized )
+                      )
+      TO result.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+  METHOD is_update_granted.
+    IF has_before_image = abap_true.
+      AUTHORITY-CHECK OBJECT 'ZOSTATFW'
+        ID 'ZOSTATFW' FIELD travel_status
+        ID 'ACTVT' FIELD '02'.
+    ELSE.
+      AUTHORITY-CHECK OBJECT 'ZOSTATFW'
+        ID 'ZOSTATFW' DUMMY
+        ID 'ACTVT' FIELD '02'.
+    ENDIF.
+    update_granted = COND #( WHEN sy-subrc = 0 THEN abap_true ELSE abap_false ).
+
+    " Simulate full access - for testing purposes only! Needs to be removed for a productive implementation
+    update_granted = abap_true.
+  ENDMETHOD.
+
+  METHOD is_delete_granted.
+    IF has_before_image = abap_true.
+      AUTHORITY-CHECK OBJECT 'ZOSTATFW'
+        ID 'ZOSTATFW' FIELD travel_status
+        ID 'ACTVT' FIELD '06'.
+    ELSE.
+      AUTHORITY-CHECK OBJECT 'ZOSTATFW'
+        ID 'ZOSTATFW' DUMMY
+        ID 'ACTVT' FIELD '06'.
+    ENDIF.
+    delete_granted = COND #( WHEN sy-subrc = 0 THEN abap_true ELSE abap_false ).
+
+    " Simulate full access - for testing purposes only! Needs to be removed for a productive implementation
+    delete_granted = abap_true.
+  ENDMETHOD.
+
+  METHOD is_create_granted.
+    AUTHORITY-CHECK OBJECT 'ZOSTATFW'
+      ID 'ZOSTATFW' DUMMY
+      ID 'ACTVT' FIELD '01'.
+    create_granted = COND #( WHEN sy-subrc = 0 THEN abap_true ELSE abap_false ).
+
+    " Simulate full access - for testing purposes only! Needs to be removed for a productvie implementation
+    create_granted = abap_true.
   ENDMETHOD.
 
 ENDCLASS.
