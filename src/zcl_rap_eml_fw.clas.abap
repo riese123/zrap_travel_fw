@@ -13,6 +13,14 @@ ENDCLASS.
 
 CLASS zcl_rap_eml_fw IMPLEMENTATION.
   METHOD if_oo_adt_classrun~main.
+
+  DATA:
+    mytravels TYPE STANDARD TABLE OF ZC_RAP_Travel_FW.
+
+    mytravels = VALUE #( ( TravelUUID ='7D87AD305163869117000E02C76E016B' TravelID ='00000009' AgencyID ='070032' CustomerID ='000115' CustomerName ='Benz' BeginDate ='20210410' EndDate ='20220206' BookingFee ='120.00 ' TotalPrice ='5792.00 '
+CurrencyCode ='USD' Description ='Visiting Anna' TravelStatus ='A' LastChangedAt ='20210319222506.0000000 ' LocalLastChangedAt ='20210319222506.0000000 '  )
+ ).
+
     "step 1 - READ
 *    READ ENTITIES OF zi_rap_travel_fw
 *      ENTITY  Travel
@@ -118,6 +126,8 @@ CLASS zcl_rap_eml_fw IMPLEMENTATION.
       REPORTED DATA(reported_commit).
 
     out->write( 'Delete done' ).
+
+
   ENDMETHOD.
 
 ENDCLASS.
