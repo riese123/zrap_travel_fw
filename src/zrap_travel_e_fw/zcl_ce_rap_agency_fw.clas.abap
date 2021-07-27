@@ -5,6 +5,7 @@ CLASS zcl_ce_rap_agency_fw DEFINITION
 
   PUBLIC SECTION.
     INTERFACES if_oo_adt_classrun.
+    INTERFACES if_rap_query_provider.
 
     TYPES t_agency_range TYPE RANGE OF zz_travel_agency_es5-AgencyId.
     TYPES t_business_data TYPE TABLE OF zz_travel_agency_es5.
@@ -28,8 +29,6 @@ CLASS zcl_ce_rap_agency_fw DEFINITION
   PROTECTED SECTION.
   PRIVATE SECTION.
 ENDCLASS.
-
-
 
 CLASS zcl_ce_rap_agency_fw IMPLEMENTATION.
 
@@ -118,6 +117,38 @@ CLASS zcl_ce_rap_agency_fw IMPLEMENTATION.
     IF is_count_requested = abap_true.
       count = read_list_response->get_count(  ).
     ENDIF.
+  ENDMETHOD.
+
+  METHOD if_rap_query_provider~select.
+    DATA business_data TYPE TABLE OF zz_travel_agency_es5.
+    DATA count TYPE int8.
+    DATA(top) = io_request->get_paging( )->get_page_size(  ).
+    DATA(skip) = io_request->get_paging(  )->get_offset(  ).
+    DATA(requested_fields) = io_request->get_requested_elements(  ).
+    DATA(sort_order) = io_request->get_sort_elements(  ).
+
+    TRY.
+        DATA(filter_condition) = io_request->get_filter(  )->get_as_ranges(  ).
+
+        get_agencies(
+           EXPORTING
+             it_filter_cond = filter_condition
+             top = CONV i( top )
+             skip = CONV i( skip )
+             is_count_requested = abap_true
+             is_data_requested = abap_true
+           IMPORTING
+             business_data = business_data
+             count = count
+             ).
+
+        io_response->set_total_number_of_records( lines( business_data ) ).
+        io_response->set_data( business_data ).
+
+      CATCH cx_root INTO DATA(exception).
+        DATA(exception_message) = cl_message_helper=>get_latest_t100_exception( exception )->if_message~get_longtext(  ).
+    ENDTRY.
+
   ENDMETHOD.
 
 ENDCLASS.

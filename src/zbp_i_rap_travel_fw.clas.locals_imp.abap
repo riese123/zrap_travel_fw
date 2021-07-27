@@ -281,22 +281,71 @@ CLASS lhc_Travel IMPLEMENTATION.
     agencies = CORRESPONDING #( travels DISCARDING DUPLICATES MAPPING agency_id = AgencyID EXCEPT * ).
     DELETE agencies WHERE agency_id IS INITIAL.
 
-    IF agencies IS NOT INITIAL.
-      " CHeck if agency ID exist
-      SELECT FROM /dmo/agency FIELDS agency_id
-        FOR ALL ENTRIES IN @agencies
-        WHERE agency_id = @agencies-agency_id
-        INTO TABLE @DATA(agencies_db).
-    ENDIF.
-
     " Raise msg for non existing and initial agencyID
     LOOP AT travels INTO DATA(travel).
-      " Clear status messages that might exist
-      APPEND VALUE #( %tky        = travel-%tky
+      " Clear state messages that might exist
+      APPEND VALUE #( %tky = travel-%tky
                       %state_area = 'VALIDATE_AGENCY' )
-        TO reported-travel.
+       TO reported-travel.
+    ENDLOOP.
 
-      IF travel-AgencyID IS INITIAL OR NOT line_exists( agencies_db[ agency_id = travel-AgencyID ] ).
+    DATA filter_conditions TYPE if_rap_query_filter=>tt_name_range_pairs.
+    DATA ranges_table TYPE if_rap_query_filter=>tt_range_option.
+    DATA business_data TYPE TABLE OF zz_travel_agency_es5.
+
+    IF agencies IS NOT INITIAL.
+      ranges_table = VALUE #( FOR agency IN agencies ( sign = 'I' option = 'EQ' low = agency-agency_id ) ).
+      filter_conditions = VALUE #( ( name = 'AGENCYID' range = ranges_table ) ).
+
+      TRY.
+          " skip and top must not be used
+          " but an appropriate ilter will be provided
+          NEW zcl_ce_rap_agency_fw(  )->get_agencies(
+            EXPORTING
+              it_filter_cond = filter_conditions
+              is_data_requested = abap_true
+              is_count_requested = abap_false
+            IMPORTING
+              business_data = business_data ).
+
+        CATCH /iwbep/cx_cp_remote
+              /iwbep/cx_gateway
+              cx_web_http_client_error
+              cx_http_dest_provider_error
+
+              INTO DATA(exception).
+
+          DATA(exception_message) = cl_message_helper=>get_latest_t100_exception( exception )->if_message~get_text(  ).
+          LOOP AT travels INTO travel.
+            APPEND VALUE #( %tky = travel-%tky ) TO failed-travel.
+            APPEND VALUE #( %tky = travel-%tky
+                            %state_area = 'VALIDATE_AGENCY'
+                            %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error text = exception_message )
+                            %element-AgencyID = if_abap_behv=>mk-on )
+           TO reported-travel.
+          ENDLOOP.
+          RETURN.
+      ENDTRY.
+    ENDIF.
+
+*    IF agencies IS NOT INITIAL.
+*      " CHeck if agency ID exist
+*      SELECT FROM /dmo/agency FIELDS agency_id
+*        FOR ALL ENTRIES IN @agencies
+*        WHERE agency_id = @agencies-agency_id
+*        INTO TABLE @DATA(agencies_db).
+*    ENDIF.
+
+    " Raise msg for non existing and initial agencyID
+    " LOOP AT travels INTO DATA(travel).
+    LOOP AT travels INTO travel.
+      " Clear status messages that might exist
+      "      APPEND VALUE #( %tky        = travel-%tky
+      "                      %state_area = 'VALIDATE_AGENCY' )
+      "        TO reported-travel.
+
+      "     IF travel-AgencyID IS INITIAL OR NOT line_exists( agencies_db[ agency_id = travel-AgencyID ] ).
+      IF travel-AgencyID IS INITIAL OR NOT line_exists( business_data[ agencyid = travel-AgencyID ] ).
         APPEND VALUE #( %tky = travel-%tky ) TO failed-travel.
 
         APPEND VALUE #( %tky        = travel-%tky

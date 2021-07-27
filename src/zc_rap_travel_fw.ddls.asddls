@@ -10,7 +10,7 @@ define root view entity ZC_RAP_Travel_FW
       @Search.defaultSearchElement: true
       TravelID,
 //     @Consumption.valueHelpDefinition: [{ entity: { name: '/DMO/I_Agency', element: 'AgencyID'} }]
-       @Consumption.valueHelpDefinition: [{ entity: { name: 'zce_rap_agency_1234', element: 'AgencyID'} }]
+       @Consumption.valueHelpDefinition: [{ entity: { name: 'zce_rap_agency_fw', element: 'AgencyId'} }]
 //      @ObjectModel.text.element: ['AgencyName']
       @Search.defaultSearchElement: true
       AgencyID,
